@@ -4,6 +4,7 @@ require "uri"
 require "ox"
 require "ostruct"
 require "pry"
+require 'net/http'
 
 NEXTBUS_BASE_URL = 'http://webservices.nextbus.com/service/publicXMLFeed?command=predictions&a=sf-muni'
 
@@ -20,39 +21,36 @@ ICONS = {
 DEFAULT_PREDICTIONS_PER_FRAME = 1
 DEFAULT_MAX_PREDICTIONS_PER_ROUTE = 2
 
-def to_recursive_ostruct(hash)
-  OpenStruct.new(hash.each_with_object({}) do |(key, val), memo|
-    memo[key] = val.is_a?(Hash) ? to_recursive_ostruct(val) : val
-  end)
+def deep_transform_to_ostruct(hash)
+  json = hash.to_json
+  object = JSON.parse(json, object_class: OpenStruct) 
+end
+
+def find(obj, key)
+  obj.find(&key).send(key)
 end
 
 def fetch_stop_predictions(stop_id, route_tag)
   url = "#{NEXTBUS_BASE_URL}&stopId=#{stop_id}&routeTag=#{route_tag}"
-  xml = Net::HTTP.get_response(URI.parse(url)).body
-  predictions = to_recursive_ostruct(Ox.load(xml, mode: :hash)[:body][1])
+  resp = Net::HTTP.get_response(URI.parse(url)).body
+  xml = deep_transform_to_ostruct(Ox.load(resp, mode: :hash))
+  xml.body.find(&:predictions)&.send(:predictions)
 end
 
 def stop_predictions(stop_id, route_tag)
-  xml = fetch_stop_predictions(stop_id, route_tag)
-  predictions = dig_predictions(xml)
-  parse_predictions(predictions)
-end
-
-def fetch_stop_predictions(stop_id, route_tag)
-  url = "#{NEXTBUS_BASE_URL}&stopId=#{stop_id}&routeTag=#{route_tag}"
-  xml = Net::HTTP.get_response(URI.parse(url)).body
+  xml_hash = fetch_stop_predictions(stop_id, route_tag)
+  dig_predictions(xml_hash)
 end
 
 def dig_predictions(xml)
-  x = to_recursive_ostruct(Ox.load(xml, mode: :hash)).body[1]
-  binding.pry
-  x[:predictions][1][:direction]
-    .map{ |x| to_recursive_ostruct(x) }
-    .find_all(&:prediction)
-end
-
-def parse_predictions(predictions)
-  predictions.map { |x| x.prediction[0][:minutes] }.flatten
+  directions = xml.find_all(&:direction)
+  predictions = []
+  directions&.each do |direction|
+    direction.direction&.find_all(&:prediction)&.each do |x| 
+      predictions << x.prediction[0].minutes.to_i
+    end
+  end
+  predictions.uniq.sort!  
 end
 
 def present_pairs(predictions)
@@ -61,12 +59,12 @@ end
 
 def present_singles(predictions)
   max_predictions_per_route = DEFAULT_MAX_PREDICTIONS_PER_ROUTE
-  predictions.each_with_index.map do | minutes, idx |
-    next if idx >  max_predictions_per_route - 1
-    if minutes.to_i === 0
+  predictions.map do | minutes |
+    case minutes
+    when 0
       {text: 'NOW'}
     else
-      {text: minutes + ' MIN'} 
+      {text: "#{minutes} MIN"} 
     end
   end
 end

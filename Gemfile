@@ -4,3 +4,4 @@ gem "sinatra"
 gem "puma"
 gem "ox"
 gem "pry"
+gem 'net'
