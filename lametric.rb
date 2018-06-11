@@ -9,17 +9,17 @@ require 'net/http'
 NEXTBUS_BASE_URL = 'http://webservices.nextbus.com/service/publicXMLFeed?command=predictions&a=sf-muni'
 
 ICONS = {
-  LOGO:   'i21026',
-  J:      'i20870',
-  T:      'i20989',
-  M:      'i20996',
-  K:      'i20995',
-  L:      'i21011',
-  N:      'i21025'
+  LOGO:   'i21078',
+  J:      'i21079',
+  # T:      'i20989',
+  M:      'i21092',
+  KT:     'i21088',
+  L:      'i21095',
+  N:      'i21093'
 }
 
 DEFAULT_PREDICTIONS_PER_FRAME = 1
-DEFAULT_MAX_PREDICTIONS_PER_ROUTE = 2
+DEFAULT_MAX_PREDICTIONS_PER_ROUTE = 4
 
 def deep_transform_to_ostruct(hash)
   json = hash.to_json
@@ -53,8 +53,15 @@ def dig_predictions(xml)
   predictions.uniq.sort!  
 end
 
-def present_pairs(predictions)
+def present_doubles(predictions)
+  doubles = predictions.each_slice(2).to_a
+  doubles.map do | prediction_pair |
 
+    returned = []
+    returned.push(prediction_pair.first <= 1 ? 'NOW' : prediction_pair.first.to_s)
+    returned.push(prediction_pair[1].to_s) unless prediction_pair.length == 1      
+    returned.join(', ') unless prediction_pair.length == 1 
+  end
 end
 
 def present_singles(predictions)
@@ -74,7 +81,7 @@ def serialize_frames(frames, opts = {})
     {
       :index => idx,
       :icon => opts.dig(:default_icon) || x.dig(:icon) || ICONS[:LOGO],
-      :text => x.dig(:text) || x.class == String && x
+      :text => x.class == String && x || x.dig(:text)
     }
   end
 
@@ -106,7 +113,8 @@ get "/predictions" do
   #   ) # [ 0, 4 ]
 
   # present turns 0 to NOW and adds min depending on params
-  presented_predictions = present_singles(crop_predictions(predictions)) # ["NOW", "4 MIN"]
+  # presented_predictions = present_singles(crop_predictions(predictions)) # ["NOW", "4 MIN"]
+  presented_predictions = present_doubles(crop_predictions(predictions)) # ["NOW, 4"]
   puts 'presented_predictions '
   puts presented_predictions 
     # if params[:predictions_per_line].to_i == 2
