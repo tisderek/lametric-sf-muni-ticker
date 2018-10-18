@@ -23,7 +23,7 @@ DEFAULT_MAX_PREDICTIONS_PER_ROUTE = 4
 
 def deep_transform_to_ostruct(hash)
   json = hash.to_json
-  object = JSON.parse(json, object_class: OpenStruct) 
+  object = JSON.parse(json, object_class: OpenStruct)
 end
 
 def find(obj, key)
@@ -46,11 +46,11 @@ def dig_predictions(xml)
   directions = xml.find_all(&:direction)
   predictions = []
   directions&.each do |direction|
-    direction.direction&.find_all(&:prediction)&.each do |x| 
+    direction.direction&.find_all(&:prediction)&.each do |x|
       predictions << x.prediction[0].minutes.to_i
     end
   end
-  predictions.uniq.sort!  
+  predictions.uniq.sort!
 end
 
 def present_doubles(predictions)
@@ -59,8 +59,8 @@ def present_doubles(predictions)
 
     returned = []
     returned.push(prediction_pair.first <= 1 ? 'NOW' : prediction_pair.first.to_s)
-    returned.push(prediction_pair[1].to_s) unless prediction_pair.length == 1      
-    returned.join(', ') unless prediction_pair.length == 1 
+    returned.push(prediction_pair[1].to_s) unless prediction_pair.length == 1
+    returned.join(', ') unless prediction_pair.length == 1
   end
 end
 
@@ -71,7 +71,7 @@ def present_singles(predictions)
     when 0
       {text: 'NOW'}
     else
-      {text: "#{minutes} MIN"} 
+      {text: "#{minutes} MIN"}
     end
   end
 end
@@ -96,6 +96,9 @@ get "/predictions" do
   cache_control :public, max_age: 540
   content_type :json
 
+  bru = [{text: "Oi Bru"}]
+  return serialize_frames(bru, default_icon: ICONS[:LOGO])
+
   errors = []
   errors << {text: "STOP_ID?"} unless params[:stop_id]
   errors << {text: "ROUTES?"} unless params[:routes]
@@ -106,9 +109,9 @@ get "/predictions" do
 
   predictions = stop_predictions(params[:stop_id], params[:routes]) # [0, 4, 11, 19, 44]
   # cropping takes into consideration max predictions per route
-  # cropped_predictions = 
+  # cropped_predictions =
   #   crop_predictions(
-  #     params[:max_predictions_per_route] 
+  #     params[:max_predictions_per_route]
   #     || DEFAULT_MAX_PREDICTIONS_PER_ROUTE)
   #   ) # [ 0, 4 ]
 
@@ -116,15 +119,15 @@ get "/predictions" do
   # presented_predictions = present_singles(crop_predictions(predictions)) # ["NOW", "4 MIN"]
   presented_predictions = present_doubles(crop_predictions(predictions)) # ["NOW, 4"]
   puts 'presented_predictions '
-  puts presented_predictions 
+  puts presented_predictions
     # if params[:predictions_per_line].to_i == 2
     #   present_pairs(predictions)
     # else
       # present_singles(predictions)
     # end
   puts 'serialize_frames(presented_predictions) '
-  puts serialize_frames(presented_predictions, default_icon: ICONS[params[:routes].to_sym]) 
+  puts serialize_frames(presented_predictions, default_icon: ICONS[params[:routes].to_sym])
   # serialize adds the indexes to the array passed in and turns to json
-  serialize_frames(presented_predictions, default_icon: ICONS[params[:routes].to_sym]) 
+  serialize_frames(presented_predictions, default_icon: ICONS[params[:routes].to_sym])
 end
 
